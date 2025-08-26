@@ -1,0 +1,8 @@
+{
+  "name": "Hadamard",
+  "description": "Single qubit in superposition (|0> → |+>)",
+  "qubits": 1,
+  "operations": [
+    {"gate": "h", "targets": [0]}
+  ]
+}

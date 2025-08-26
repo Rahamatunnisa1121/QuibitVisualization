@@ -1,0 +1,178 @@
+import streamlit as st
+import plotly.graph_objects as go
+from qiskit import QuantumCircuit
+from qiskit.quantum_info import DensityMatrix, partial_trace, Statevector
+import numpy as np
+import json
+import os
+from qiskit import ClassicalRegister
+
+# Import Qiskit equivalent circuits
+from examples.circuits_equivalent import (
+    hadamard_circuit,
+    bell_state_circuit,
+    ghz_state_circuit,
+    qft_circuit,
+    grover_circuit
+)
+
+
+# ---- Backend Function ---- #
+def get_single_qubit_bloch_vectors(circuit: QuantumCircuit):
+    state = Statevector.from_instruction(circuit)
+    rho = DensityMatrix(state)
+
+    bloch_vectors = []
+    num_qubits = circuit.num_qubits
+
+    for qubit in range(num_qubits):
+        reduced_state = partial_trace(rho, [i for i in range(num_qubits) if i != qubit])
+        rho_single = np.array(reduced_state.data)
+
+        sigma_x = np.array([[0, 1], [1, 0]])
+        sigma_y = np.array([[0, -1j], [1j, 0]])
+        sigma_z = np.array([[1, 0], [0, -1]])
+
+        x = np.real(np.trace(rho_single @ sigma_x))
+        y = np.real(np.trace(rho_single @ sigma_y))
+        z = np.real(np.trace(rho_single @ sigma_z))
+
+        bloch_vectors.append({"qubit": qubit, "x": x, "y": y, "z": z})
+
+    return bloch_vectors
+
+
+# ---- Plot Bloch Sphere ---- #
+def plot_bloch_sphere(bloch_vector, qubit_index):
+    x, y, z = bloch_vector["x"], bloch_vector["y"], bloch_vector["z"]
+
+    fig = go.Figure()
+
+    u, v = np.mgrid[0:2*np.pi:40j, 0:np.pi:20j]
+    xs = np.cos(u) * np.sin(v)
+    ys = np.sin(u) * np.sin(v)
+    zs = np.cos(v)
+    fig.add_surface(x=xs, y=ys, z=zs, opacity=0.1, colorscale="Blues")
+
+    fig.add_trace(go.Scatter3d(
+        x=[0, x], y=[0, y], z=[0, z],
+        mode="lines+markers",
+        line=dict(color="red", width=5),
+        marker=dict(size=4, color="red")
+    ))
+
+    fig.update_layout(
+        title=f"Qubit {qubit_index} Bloch Vector",
+        scene=dict(
+            xaxis=dict(range=[-1,1]),
+            yaxis=dict(range=[-1,1]),
+            zaxis=dict(range=[-1,1])
+        ),
+        margin=dict(l=0, r=0, b=0, t=30)
+    )
+    return fig
+
+
+# ---- Load Circuit from JSON ---- #
+
+def load_circuit_from_json(path):
+    with open(path, "r") as f:
+        data = json.load(f)
+
+    qc = QuantumCircuit(data["qubits"])
+
+    for op in data["operations"]:
+        gate = op["gate"]
+        targets = op["targets"]
+        params = op.get("params", {})
+
+        if gate == "h":
+            qc.h(*targets)
+
+        elif gate == "x":
+            qc.x(*targets)
+
+        elif gate == "cx":
+            qc.cx(*targets)
+
+        elif gate == "cz":
+            qc.cz(*targets)
+
+        elif gate == "swap":
+            qc.swap(*targets)
+
+        elif gate == "cp":
+            theta = params.get("theta", np.pi/2)  # default to π/2 if not given
+            qc.cp(theta, *targets)
+
+        elif gate == "measure":
+            if qc.num_clbits < len(targets):
+                qc.add_register(ClassicalRegister(len(targets)))
+            qc.measure(*targets, *targets)
+
+        else:
+            raise ValueError(f"❌ Unsupported gate: {gate}")
+
+    return qc
+
+
+# ---- Streamlit UI ---- #
+st.title("🔮 Quantum State Visualizer")
+st.write("Visualize quantum circuits on the Bloch sphere in real time.")
+
+mode = st.radio("Choose mode:", ["Predefined Circuits", "JSON Circuits", "Custom Code"])
+
+# --- Predefined Circuits (Python functions) --- #
+if mode == "Predefined Circuits":
+    example = st.selectbox("Choose circuit:", ["Hadamard", "Bell State", "GHZ"])
+
+    if example == "Hadamard":
+        qc = hadamard_circuit()
+    elif example == "Bell State":
+        qc = bell_state_circuit()
+    elif example == "GHZ":
+        qc = ghz_state_circuit()
+
+# --- JSON Circuits (load from /examples) --- #
+elif mode == "JSON Circuits":
+    json_files = [f for f in os.listdir("examples") if f.endswith(".json")]
+    choice = st.selectbox("Choose JSON circuit:", json_files)
+
+    path = os.path.join("examples", choice)
+    qc = load_circuit_from_json(path)
+
+# --- Custom Code Input --- #
+else:
+    st.subheader("✍️ Enter Qiskit Circuit Code")
+    user_code = st.text_area("Write your circuit here (use variable name 'qc'):", 
+"""
+from qiskit import QuantumCircuit
+
+qc = QuantumCircuit(2)
+qc.h(0)
+qc.cx(0, 1)
+""", height=200)
+
+    try:
+        local_scope = {}
+        exec(user_code, {}, local_scope)
+
+        if "qc" in local_scope and isinstance(local_scope["qc"], QuantumCircuit):
+            qc = local_scope["qc"]
+        else:
+            st.error("❌ No valid QuantumCircuit named 'qc' found. Using Hadamard fallback.")
+            qc = hadamard_circuit()
+    except Exception as e:
+        st.error(f"❌ Error in your code: {e}")
+        qc = hadamard_circuit()
+
+# ---- Compute & Display ---- #
+bloch_vectors = get_single_qubit_bloch_vectors(qc)
+
+st.subheader("Quantum Circuit")
+st.text(qc.draw())
+
+st.subheader("Bloch Spheres")
+for vec in bloch_vectors:
+    fig = plot_bloch_sphere(vec, vec["qubit"])
+    st.plotly_chart(fig, use_container_width=True)

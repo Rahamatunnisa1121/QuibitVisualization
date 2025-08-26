@@ -1,0 +1,14 @@
+{
+  "name": "Quantum Fourier Transform (QFT)",
+  "description": "3-qubit Quantum Fourier Transform circuit",
+  "qubits": 3,
+  "operations": [
+    {"gate": "h", "targets": [0]},
+    {"gate": "cp", "targets": [1, 0], "params": {"theta": 1.5708}},
+    {"gate": "cp", "targets": [2, 0], "params": {"theta": 0.7854}},
+    {"gate": "h", "targets": [1]},
+    {"gate": "cp", "targets": [2, 1], "params": {"theta": 1.5708}},
+    {"gate": "h", "targets": [2]},
+    {"gate": "swap", "targets": [0, 2]}
+  ]
+}

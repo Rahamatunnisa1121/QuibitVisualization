@@ -1,0 +1,10 @@
+{
+  "name": "GHZ State",
+  "description": "Three-qubit GHZ state (|000> + |111>)/√2",
+  "qubits": 3,
+  "operations": [
+    {"gate": "h", "targets": [0]},
+    {"gate": "cx", "targets": [0, 1]},
+    {"gate": "cx", "targets": [0, 2]}
+  ]
+}

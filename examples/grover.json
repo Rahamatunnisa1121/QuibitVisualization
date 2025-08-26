@@ -1,0 +1,18 @@
+{
+  "name": "Grover's Algorithm",
+  "description": "2-qubit Grover’s search for |11>",
+  "qubits": 2,
+  "operations": [
+    {"gate": "h", "targets": [0]},
+    {"gate": "h", "targets": [1]},
+    {"gate": "cz", "targets": [0, 1]},
+    {"gate": "h", "targets": [0]},
+    {"gate": "x", "targets": [0]},
+    {"gate": "h", "targets": [1]},
+    {"gate": "cz", "targets": [0, 1]},
+    {"gate": "h", "targets": [1]},
+    {"gate": "x", "targets": [0]},
+    {"gate": "h", "targets": [0]},
+    {"gate": "h", "targets": [1]}
+  ]
+}
