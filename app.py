@@ -6,6 +6,11 @@ import numpy as np
 import json
 import os
 from qiskit import ClassicalRegister
+from utils.ai_validator import CircuitValidator
+from qiskit import QuantumCircuit
+
+from utils.ai_validator import CircuitValidator
+from qiskit import QuantumCircuit
 
 # Import Qiskit equivalent circuits
 from examples.circuits_equivalent import (
@@ -142,29 +147,51 @@ elif mode == "JSON Circuits":
     qc = load_circuit_from_json(path)
 
 # --- Custom Code Input --- #
-else:
-    st.subheader("✍️ Enter Qiskit Circuit Code")
-    user_code = st.text_area("Write your circuit here (use variable name 'qc'):", 
-"""
-from qiskit import QuantumCircuit
+elif mode == "Custom Code":
+    from qiskit import QuantumCircuit
+    from utils.ai_validator import CircuitValidator
 
-qc = QuantumCircuit(2)
-qc.h(0)
-qc.cx(0, 1)
-""", height=200)
+    st.subheader("📝 Enter Qiskit Circuit Code")
+    user_code = st.text_area(
+        "Write your circuit here (use variable name qc):",
+        height=200,
+        placeholder="Example:\nqc = QuantumCircuit(2)\nqc.h(0)\nqc.cx(0,1)"
+    )
 
-    try:
-        local_scope = {}
-        exec(user_code, {}, local_scope)
+    if user_code.strip():
+        try:
+            local_vars = {}
+            exec(user_code, {}, local_vars)
 
-        if "qc" in local_scope and isinstance(local_scope["qc"], QuantumCircuit):
-            qc = local_scope["qc"]
-        else:
-            st.error("❌ No valid QuantumCircuit named 'qc' found. Using Hadamard fallback.")
-            qc = hadamard_circuit()
-    except Exception as e:
-        st.error(f"❌ Error in your code: {e}")
-        qc = hadamard_circuit()
+            if "qc" in local_vars:
+                qc = local_vars["qc"]
+
+                # ✅ Use AI Validator
+                is_valid, message = CircuitValidator.validate_qiskit_circuit(qc)
+
+                if is_valid:
+                    st.success(f"✅ {message}")
+                else:
+                    st.error(f"❌ {message}")
+                    qc = QuantumCircuit(1)
+                    qc.h(0)  # fallback
+
+            else:
+                st.error("❌ No circuit named qc found. Please define qc in your code.")
+                qc = QuantumCircuit(1)
+                qc.h(0)
+
+        except Exception as e:
+            st.error(f"❌ Error in your code: {e}")
+            qc = QuantumCircuit(1)
+            qc.h(0)
+
+    else:
+        st.info("ℹ No circuit provided, showing fallback Hadamard.")
+        qc = QuantumCircuit(1)
+        qc.h(0)
+
+
 
 # ---- Compute & Display ---- #
 bloch_vectors = get_single_qubit_bloch_vectors(qc)
