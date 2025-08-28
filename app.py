@@ -197,7 +197,44 @@ elif mode == "Custom Code":
 bloch_vectors = get_single_qubit_bloch_vectors(qc)
 
 st.subheader("Quantum Circuit")
-st.text(qc.draw())
+st.subheader("Bloch Spheres")
+
+# --- AI-Powered Circuit Optimization --- #
+st.subheader("AI-Powered Circuit Optimization")
+
+if st.button("Optimize Circuit"):
+    from qiskit import transpile
+    from qiskit.quantum_info import Statevector
+    optimized_qc = transpile(qc, optimization_level=3)
+    st.write("**Original Circuit:**")
+    st.text(qc.draw())
+    st.write(f"Gate count: {qc.size()}, Depth: {qc.depth()}")
+    st.write("**Optimized Circuit:**")
+    st.text(optimized_qc.draw())
+    st.write(f"Gate count: {optimized_qc.size()}, Depth: {optimized_qc.depth()}")
+    if optimized_qc.size() < qc.size():
+        st.success(f"✅ Optimization reduced gate count by {qc.size() - optimized_qc.size()} gates!")
+    else:
+        st.info("ℹ️ No further optimization possible.")
+
+    # Validate equivalence of quantum states
+    try:
+        sv_orig = Statevector.from_instruction(qc)
+        sv_opt = Statevector.from_instruction(optimized_qc)
+        if sv_orig.equiv(sv_opt):
+            st.success("✅ Optimized circuit is functionally equivalent to the original.")
+        else:
+            st.warning("⚠️ Optimized circuit produces a different quantum state.")
+    except Exception as e:
+        st.error(f"Error during validation: {e}")
+
+    # Use optimized circuit for Bloch visualization
+    bloch_vectors = get_single_qubit_bloch_vectors(optimized_qc)
+else:
+    st.text(qc.draw())
+    st.write(f"Gate count: {qc.size()}, Depth: {qc.depth()}")
+    # Use original circuit for Bloch visualization
+    bloch_vectors = get_single_qubit_bloch_vectors(qc)
 
 st.subheader("Bloch Spheres")
 for vec in bloch_vectors:
